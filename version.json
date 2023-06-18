@@ -1,1 +1,6 @@
-
+{
+    "version": 1,
+	"date": "18.06.2023",
+	"url": "https://raw.githubusercontent.com/WebbLua/StreamDamageInformer/main/StreamDamageInformer.lua",
+	"label": "https://raw.githubusercontent.com/WebbLua/TextLabels/main/TextLabels.json"
+}
