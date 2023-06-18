@@ -15,6 +15,7 @@ end
 
 try(function()
     ev = require 'samp.events'
+    weapons = require 'game.weapons'
     inicfg = require 'inicfg'
     dlstatus = require'moonloader'.download_status
     encoding = require 'encoding'
@@ -75,6 +76,7 @@ function main()
 
     sampRegisterChatCommand("sdamage", function()
         sd_ini.settings.status = not sd_ini.settings.status
+        inicfg.save(sd_ini, StreamDamage)
         script.sendMessage("Инфомер " ..
                                (sd_ini.settings.status and "активирован" or "деактивирован"))
     end)
@@ -102,80 +104,57 @@ function main()
     end
 end
 
-function ev.onBulletSync(id, data) -- targetType, targetId, origin, target, center, weaponId
+function ev.onSendBulletSync(data) -- targetType, targetId, origin, target, center, weaponId
     if sd_ini.settings.status then
         if data.targetType == 1 and sampIsPlayerConnected(data.targetId) then
-            if weapid ~= nil then
-                local t = {}
-                t.weapon = getWeaponName(data.weaponId)
-                t.shooter = {
-                    id = id,
-                    nick = sampGetPlayerNickname(id),
-                    hp = sampGetPlayerHealh(id),
-                    armor = sampGetPlayerArmor(id)
-                }
-                t.target = {
-                    id = data.targetId,
-                    nick = sampGetPlayerNickname(data.targetId),
-                    hp = sampGetPlayerHealh(data.targetId),
-                    armor = sampGetPlayerArmor(data.targetId)
-                }
-                script.sendMessage(string.format("%s[%s] (HP: %s | ARM: %s) shot at %s[%s] (HP: %s | ARM: %s) with %s",
-                    t.shooter.nick, t.shooter.id, t.shooter.hp, t.shooter.armor, t.target.nick, t.target.id,
-                    t.target.hp, t.target.armor, t.weapon))
-            end
+            local t = {}
+            t.weapon = weapons.get_name(data.weaponId)
+            local id = select(2, sampGetPlayerIdByCharHandle(PLAYER_PED))
+            local scolor = string.sub(string.format('%x', sampGetPlayerColor(id)), 3)
+            local scolor = scolor == "ffff" and "fffafa" or scolor
+            t.shooter = {
+                color = scolor,
+                id = id,
+                nick = sampGetPlayerNickname(id)
+            }
+            local tcolor = string.sub(string.format('%x', sampGetPlayerColor(data.targetId)), 3)
+            local tcolor = tcolor == "ffff" and "fffafa" or tcolor
+            t.target = {
+                color = tcolor,
+                id = data.targetId,
+                nick = sampGetPlayerNickname(data.targetId)
+            }
+            sampAddChatMessage(string.format("{%s}%s[%s]%s shot at {%s}%s[%s]%s with %s", t.shooter.color,
+                t.shooter.nick, t.shooter.id, main_color_hex, t.target.color, t.target.nick, t.target.id,
+                main_color_hex, t.weapon), main_color)
         end
     end
 end
 
-function getWeaponName(id)
-    local name = {
-        [0] = "Fist",
-        [1] = "Brass Knuckles",
-        [2] = "Golf Club",
-        [3] = "Nightstick",
-        [4] = "Knife",
-        [5] = "Baseball Bat",
-        [6] = "Shovel",
-        [7] = "Pool Cue",
-        [8] = "Katana",
-        [9] = "Chainsaw",
-        [10] = "Purple Dildo",
-        [11] = "Dildo",
-        [12] = "Vibrator",
-        [13] = "Silver Vibrator",
-        [14] = "Flowers",
-        [15] = "Cane",
-        [16] = "Grenade",
-        [17] = "Tear Gas",
-        [18] = "Molotov Cocktail",
-        [22] = "Glock",
-        [23] = "Taser X26",
-        [24] = "FN Five-seveN",
-        [25] = "Shotgun",
-        [26] = "Sawnoff Shotgun",
-        [27] = "Combat Shotgun",
-        [28] = "Micro SMG/Uzi",
-        [29] = "MP5",
-        [30] = "AK-74",
-        [31] = "MK 18",
-        [32] = "Tec-9",
-        [33] = "Country Rifle",
-        [34] = "Sniper Rifle",
-        [35] = "RPG",
-        [36] = "HS Rocket",
-        [37] = "Flamethrower",
-        [38] = "Minigun",
-        [39] = "Satchel Charge",
-        [40] = "Detonator",
-        [41] = "Spraycan",
-        [42] = "Fire Extinguisher",
-        [43] = "Camera",
-        [44] = "Night Vis Goggles",
-        [45] = "Thermal Goggles",
-        [46] = "Parachute"
-    }
-    return name[id]
+function ev.onBulletSync(id, data) -- targetType, targetId, origin, target, center, weaponId
+    if sd_ini.settings.status then
+        if data.targetType == 1 and (sampIsPlayerConnected(data.targetId) or data.targetId == select(2, sampGetPlayerIdByCharHandle(PLAYER_PED))) then
+            local t = {}
+            t.weapon = weapons.get_name(data.weaponId)
+            local scolor = string.sub(string.format('%x', sampGetPlayerColor(id)), 3)
+            local scolor = scolor == "ffff" and "fffafa" or scolor
+            t.shooter = {
+                color = scolor,
+                id = id,
+                nick = sampGetPlayerNickname(id)
+            }
+            local tcolor = string.sub(string.format('%x', sampGetPlayerColor(data.targetId)), 3)
+            local tcolor = tcolor == "ffff" and "fffafa" or tcolor
+            t.target = {
+                color = tcolor,
+                id = data.targetId,
+                nick = sampGetPlayerNickname(data.targetId)
+            }
+            sampAddChatMessage(string.format("{%s}%s[%s]%s shot at {%s}%s[%s]%s with %s", t.shooter.color,
+                t.shooter.nick, t.shooter.id, main_color_hex, t.target.color, t.target.nick, t.target.id,
+                main_color_hex, t.weapon), main_color)
+        end
+    end
 end
 
 textlabel = {}
@@ -189,10 +168,12 @@ function textLabelOverPlayerNickname()
     for i = 0, 1000 do
         if sampIsPlayerConnected(i) and sampGetPlayerScore(i) ~= 0 then
             local nick = sampGetPlayerNickname(i)
-            if script.label[server][nick] ~= nil then
-                if textlabel[i] == nil then
-                    textlabel[i] = sampCreate3dText(u8:decode(script.label[server][nick].text),
-                        tonumber(script.label[server][nick].color), 0.0, 0.0, 0.8, 15.0, false, i, -1)
+            if script.label[server] ~= nil then
+                if script.label[server][nick] ~= nil then
+                    if textlabel[i] == nil then
+                        textlabel[i] = sampCreate3dText(u8:decode(script.label[server][nick].text),
+                            tonumber(script.label[server][nick].color), 0.0, 0.0, 0.8, 15.0, false, i, -1)
+                    end
                 end
             end
         else
@@ -305,4 +286,3 @@ function onScriptTerminate(s, bool)
         end
     end
 end
-
